@@ -1,56 +1,67 @@
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::net::UdpSocket;
-use std::io::Error;
 
-fn main() -> Result<(), Error> {
-    println!("Hello, world!");
-    // Create a UDP socket
-    let socket = UdpSocket::bind("0.0.0.0:54321")?;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
-    // Initialize the default host
+fn main() {
+    // init default host
     let host = cpal::default_host();
-    let mut buffer = [0; 1024];
 
-    // Get the default output device and its supported output config
+    // get output device and config
     let output_device = host
         .output_devices()
-        .unwrap()
+        .expect("No output device available")
         .next()
         .expect("No output device available");
     let supported_output_config = output_device
         .default_output_config()
-        .expect("No default output config available");
+        .expect("No default output config available")
+        .config();
 
-    // Build output stream to speaker
-    let output_stream = output_device.build_output_stream(
-        &supported_output_config.config(),
-        move |output_data, _: &_| {
+    let socket = UdpSocket::bind("0.0.0.0:54321").expect("Failed to bind UDP socket");
 
-            match socket.recv_from(&mut buffer) {
-                Ok((bytes_received, _)) => {
-                    // Convert received bytes to audio samples and copy them to the output buffer
-                    let samples_received = bytes_received / std::mem::size_of::<f32>();
-                    let samples = unsafe {
-                        let ptr = buffer.as_ptr() as *const f32;
-                        std::slice::from_raw_parts(ptr, samples_received)
-                    };
-                    output_data.copy_from_slice(samples);
+    // socket -> output stream -> speaker
+    let output_stream = output_device
+        .build_output_stream(
+            &supported_output_config,
+            move |output_data, _: &_| {
+                // find out how many samples we can receive from socket
+                let mut recv_buffer = [0; 44100];
+                match socket.recv(&mut recv_buffer) {
+                    Ok(bytes_received) => {
+                        let samples_received = bytes_received / std::mem::size_of::<f32>();
+                        let samples = match samples_received {
+                            0 => &[],
+                            _ => {
+                                let ptr = recv_buffer.as_ptr() as *const f32;
+                                create_slice_from_raw_ptr(ptr, samples_received)
+                            }
+                        };
+                        let len = output_data.len().min(samples.len());
+                        output_data[..len].copy_from_slice(&samples[..len]);
+                    }
+                    Err(err) => {
+                        eprintln!("Failed to receive UDP packet: {}", err);
+                    }
                 }
-                Err(err) => {
-                    eprintln!("Failed to receive UDP packet: {}", err);
-                },
-            }
-        },
-        move |err| {
-            // React to errors here
-            eprintln!("An error occurred on input stream: {}", err);
-        },
-        None, // No timeout
-    );
+            },
+            move |err| {
+                eprintln!("An error occurred on output stream: {}", err);
+            },
+            None,
+        )
+        .expect("Failed to build output stream");
 
-    // Start the output stream
-    output_stream.unwrap().play().expect("TODO: panic message");
+    // start output stream if not already started
+    output_stream.play().expect("Failed to play output stream");
 
-    // Keep the main thread alive
-    loop {}
+    // keep the output stream running until ctrl-c
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+    }
+}
+
+fn create_slice_from_raw_ptr(ptr: *const f32, len: usize) -> &'static [f32] {
+    unsafe {
+        std::slice::from_raw_parts(ptr, len)
+    }
 }
