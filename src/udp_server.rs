@@ -45,7 +45,7 @@ fn main() {
 
                 // send mic data to udp client socket address
                 socket
-                    .send_to(&bytes, "0.0.0.0:54321")
+                    .send_to(&bytes, "192.168.1.42:54321")
                     .expect("Failed to send UDP packet");
             },
             move |err| {

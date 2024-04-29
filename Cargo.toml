@@ -7,14 +7,23 @@ edition = "2021"
 
 [dependencies]
 cpal = "0.15.3"
+lazy_static = "1.4.0"
 
 [[bin]]
-name = "client"
-path = "src/client.rs"
+name = "udp_client"
+path = "src/udp_client.rs"
 
 [[bin]]
-name = "server"
-path = "src/server.rs"
+name = "tcp_client"
+path = "src/tcp_client.rs"
+
+[[bin]]
+name = "udp_server"
+path = "src/udp_server.rs"
+
+[[bin]]
+name = "tcp_server"
+path = "src/tcp_server.rs"
 
 [[bin]]
 name = "standalone"

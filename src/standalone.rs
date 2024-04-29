@@ -28,7 +28,7 @@ fn main() {
 
     // Create a mutex-protected buffer to store input data
     let input_buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(vec![0.0; supported_input_config.sample_rate.0 as usize]));
-    
+
     // Clone input_buffer for use in both input and output threads
     let input_buffer_clone = input_buffer.clone();
 
@@ -36,7 +36,7 @@ fn main() {
         .build_input_stream(
             &supported_input_config,
             move |data, _: &_| {
-                println!("{:?}", data);
+
                 // Store input data in the input buffer
                 let mut input_buffer = input_buffer_clone.lock().unwrap();
                 *input_buffer = data.to_vec();
